@@ -1,82 +1,25 @@
-# 📸 ChronoPic
+# ChronoPic
 
-**ChronoPic** est une application Python permettant d'analyser les métadonnées EXIF des photographies afin de retrouver leur date de prise de vue et de faciliter leur classement chronologique.
+Application de bureau Python (Tkinter) pour analyser les dates EXIF et organiser une bibliothèque de photographies.
 
 ## Fonctionnalités
-
-- Sélection d'un dossier complet de photographies.
-- Sélection individuelle de plusieurs images.
-- Galerie avec prévisualisation des photographies.
-- Miniatures avec conservation des proportions originales.
-- Aperçu grand format sans recadrage.
-- Sélection individuelle par cases à cocher.
-- Analyse des métadonnées EXIF en arrière-plan.
-- Classement chronologique automatique.
-- Pagination de la galerie.
-- Identification des photos sans date.
-- Export des résultats au format Excel.
-
-## Technologies
-
-- Python 3
-- Tkinter
-- Pillow
-- OpenPyXL
-- Threading
+- Import d'un dossier ou de photos individuelles avec analyse EXIF automatique.
+- Miniatures et aperçu sans recadrage, avec correction de l'orientation EXIF.
+- Recherche par nom et filtres : présence de date, année, mois et sélection.
+- Tri chronologique croissant ou décroissant et regroupement visuel par mois/année.
+- Détails : date, source EXIF, appareil photo, dimensions, format et chemin.
+- Export Excel des photos sélectionnées, avec un onglet dédié aux photos sans date.
+- Génération d'un rapport texte de la session.
+- Les fichiers photo originaux ne sont jamais modifiés.
 
 ## Installation
-
-Cloner le repository :
-
-```bash
-git clone URL_DU_REPOSITORY
-cd ChronoPic
-```
-
-Installer les dépendances :
+Python 3.10 ou plus récent recommandé.
 
 ```bash
-py -m pip install -r requirements.txt
+python -m pip install -r requirements.txt
+python main.py
 ```
 
-Lancer l'application :
-
-```bash
-py main.py
-```
-
-## Architecture
-
-```text
-ChronoPic/
-├── main.py
-├── interface.py
-├── photo_manager.py
-├── exif_reader.py
-├── thumbnail.py
-├── excel_export.py
-├── config.py
-├── assets/
-├── requirements.txt
-├── README.md
-└── .gitignore
-```
-
-## Philosophie
-
-ChronoPic est conçu pour simplifier l'organisation des collections photographiques, notamment pour retrouver les dates de clichés anciens.
-
-L'application analyse les fichiers sans modifier, déplacer ou supprimer les photographies originales.
-
-## Évolutions envisagées
-
-- Visionneuse plein écran.
-- Navigation entre les photographies.
-- Filtres par année et par mois.
-- Cache permanent des miniatures.
-- Gestion des photos numérisées.
-- Création d'un exécutable Windows.
-
----
-
-*Projet personnel développé en Python.*
+## Dépendances
+- Pillow
+- openpyxl

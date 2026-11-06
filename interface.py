@@ -23,7 +23,7 @@ from config import (
 )
 
 from photo_manager import PhotoManager
-from exif_reader import read_photo_date, format_photo_date
+from exif_reader import read_photo_date, read_photo_metadata, format_photo_date
 from thumbnail import create_thumbnail, create_preview
 from excel_export import export_to_excel
 
@@ -457,10 +457,51 @@ class ChronoPicInterface:
         )
 
         self.btn_excel.pack(side="right")
+        self.btn_rapport = self.creer_bouton(toolbar, "Rapport", self.exporter_rapport)
+        self.btn_rapport.pack(side="right", padx=7)
 
         # --------------------------------------
         # GALERIE
         # --------------------------------------
+
+        # Recherche, filtres et mode de tri
+        filtres = tk.Frame(principal, bg=self.BG)
+        filtres.pack(fill="x", pady=(0, 9))
+
+        self.recherche_var = tk.StringVar()
+        self.recherche_var.trace_add("write", lambda *_: self.appliquer_filtres())
+        self.entree_recherche = ttk.Entry(filtres, textvariable=self.recherche_var, width=25)
+        self.entree_recherche.pack(side="left", padx=(0, 7), ipady=5)
+        self.entree_recherche.insert(0, "")
+
+        self.filtre_date_var = tk.StringVar(value="Toutes")
+        self.combo_date = ttk.Combobox(filtres, textvariable=self.filtre_date_var,
+            values=["Toutes", "Avec date", "Sans date"], state="readonly", width=12)
+        self.combo_date.pack(side="left", padx=4)
+        self.combo_date.bind("<<ComboboxSelected>>", lambda e: self.appliquer_filtres())
+
+        self.annee_var = tk.StringVar(value="Toutes")
+        self.combo_annee = ttk.Combobox(filtres, textvariable=self.annee_var,
+            values=["Toutes"], state="readonly", width=9)
+        self.combo_annee.pack(side="left", padx=4)
+        self.combo_annee.bind("<<ComboboxSelected>>", lambda e: self.appliquer_filtres())
+
+        self.mois_var = tk.StringVar(value="Tous")
+        self.combo_mois = ttk.Combobox(filtres, textvariable=self.mois_var,
+            values=["Tous"] + [f"{i:02d}" for i in range(1, 13)], state="readonly", width=7)
+        self.combo_mois.pack(side="left", padx=4)
+        self.combo_mois.bind("<<ComboboxSelected>>", lambda e: self.appliquer_filtres())
+
+        # self.selection_var = tk.BooleanVar(value=False)
+        # tk.Checkbutton(filtres, text="Sélectionnées uniquement", variable=self.selection_var,
+        #     command=self.appliquer_filtres, bg=self.BG, fg=self.DARK,
+        #     activebackground=self.BG).pack(side="left", padx=7)
+
+        self.tri_var = tk.StringVar(value="Plus anciennes d'abord")
+        self.combo_tri = ttk.Combobox(filtres, textvariable=self.tri_var,
+            values=["Plus anciennes d'abord", "Plus récentes d'abord"], state="readonly", width=22)
+        self.combo_tri.pack(side="right", padx=3)
+        self.combo_tri.bind("<<ComboboxSelected>>", lambda e: self.appliquer_filtres())
 
         galerie_card = tk.Frame(
             principal,
@@ -635,6 +676,38 @@ class ChronoPicInterface:
     # ==========================================
     # DEFILEMENT
     # ==========================================
+
+    def obtenir_photos_filtrees(self):
+        return self.manager.get_filtered(
+            search=self.recherche_var.get() if hasattr(self, "recherche_var") else "",
+            date_filter=self.filtre_date_var.get() if hasattr(self, "filtre_date_var") else "Toutes",
+            year=self.annee_var.get() if hasattr(self, "annee_var") else "Toutes",
+            month=self.mois_var.get() if hasattr(self, "mois_var") else "Tous",
+            selected_only=self.selection_var.get() if hasattr(self, "selection_var") else False,
+            descending=self.tri_var.get() == "Plus récentes d'abord" if hasattr(self, "tri_var") else False
+        )
+
+    def appliquer_filtres(self):
+        self.page = 0
+        if hasattr(self, "frame_galerie"):
+            self.afficher_galerie()
+
+    def exporter_rapport(self):
+        from tkinter import filedialog
+        path = filedialog.asksaveasfilename(defaultextension=".txt",
+            initialfile="ChronoPic_Rapport.txt", filetypes=[("Rapport texte", "*.txt")])
+        if not path:
+            return
+        total = self.manager.get_count()
+        dates = self.manager.get_dated_count()
+        analysees = self.manager.get_analyzed_count()
+        sans_date = sum(1 for p in self.manager.photos if p["statut"] != "En attente" and p["date"] is None)
+        contenu = (f"Rapport ChronoPic\\n================\\nPhotos importées : {total}\\n"
+                   f"Photos analysées : {analysees}\\nDates identifiées : {dates}\\n"
+                   f"Photos sans date : {sans_date}\\nPhotos sélectionnées : {len(self.manager.get_selected())}\\n")
+        with open(path, "w", encoding="utf-8") as fichier:
+            fichier.write(contenu)
+        messagebox.showinfo("Rapport créé", f"Rapport enregistré :\\n{path}")
 
     def defiler(self, event):
 
@@ -820,17 +893,8 @@ class ChronoPicInterface:
 
             for index, photo in enumerate(photos, start=1):
 
-                date, source = read_photo_date(
-                    photo["chemin"]
-                )
-
-                self.queue.put((
-                    "resultat",
-                    photo,
-                    date,
-                    source,
-                    index
-                ))
+                metadata = read_photo_metadata(photo["chemin"])
+                self.queue.put(("resultat", photo, metadata, index))
 
             self.queue.put((
                 "termine",
@@ -866,10 +930,10 @@ class ChronoPicInterface:
 
                 if event[0] == "resultat":
 
-                    _, photo, date, source, index = event
-
-                    photo["date"] = date
-                    photo["source"] = source
+                    _, photo, metadata, index = event
+                    date = metadata["date"]
+                    source = metadata["source"]
+                    photo.update(metadata)
 
                     if date:
 
@@ -911,9 +975,11 @@ class ChronoPicInterface:
                     self.boutons_etat("normal")
 
                     self.manager.sort_chronologically()
-
+                    annees = sorted({str(p["date"].year) for p in self.manager.photos if p.get("date")})
+                    self.combo_annee.configure(values=["Toutes"] + annees)
+                    if self.annee_var.get() not in (["Toutes"] + annees):
+                        self.annee_var.set("Toutes")
                     self.page = 0
-
                     self.afficher_galerie()
 
                     if self.manager.get_analyzed_count() > 0:
@@ -1035,21 +1101,42 @@ class ChronoPicInterface:
         self.images = []
         self.variables = {}
 
+        self.photos_visibles = self.obtenir_photos_filtrees()
         debut = self.page * PHOTOS_PER_PAGE
         fin = debut + PHOTOS_PER_PAGE
+        page_photos = self.photos_visibles[debut:fin]
 
-        page_photos = self.manager.photos[debut:fin]
-
-        if not self.manager.photos:
+        if not self.photos_visibles:
 
             self.afficher_galerie_vide()
             self.actualiser_stats()
             return
 
-        for index, photo in enumerate(page_photos, start=debut):
+        ligne_courante = 0
+        groupe_precedent = None
+        cartes_dans_ligne = 0
 
-            ligne = (index - debut) // GALLERY_COLUMNS
+        for index, photo in enumerate(page_photos, start=debut):
+            date_photo = photo.get("date")
+            groupe = (date_photo.year, date_photo.month) if date_photo else ("Sans date",)
+            if groupe != groupe_precedent:
+                if cartes_dans_ligne:
+                    ligne_courante += 1
+                    cartes_dans_ligne = 0
+                if date_photo:
+                    titre_groupe = date_photo.strftime("%B %Y").capitalize()
+                else:
+                    titre_groupe = "Photos sans date"
+                entete_groupe = tk.Label(self.frame_galerie, text=titre_groupe,
+                    font=("Segoe UI", 11, "bold"), fg=self.DARK, bg=self.WHITE, anchor="w")
+                entete_groupe.grid(row=ligne_courante, column=0, columnspan=GALLERY_COLUMNS,
+                    sticky="ew", padx=10, pady=(12, 3))
+                ligne_courante += 1
+                groupe_precedent = groupe
+
+            ligne = ligne_courante
             colonne = (index - debut) % GALLERY_COLUMNS
+            colonne = cartes_dans_ligne
 
             # Carte individuelle
             carte = tk.Frame(
@@ -1069,20 +1156,33 @@ class ChronoPicInterface:
                 sticky="nsew"
             )
 
-            # Miniature
-            label_image = tk.Label(
+            # Zone de miniature à dimensions fixes.
+            # IMPORTANT : width/height d'un tk.Label correspondent à des
+            # caractères/lignes, pas à des pixels. Le cadre fixe garantit
+            # donc la même taille pour toutes les photos, quel que soit
+            # leur format ou leur orientation.
+            cadre_image = tk.Frame(
                 carte,
-                text="Chargement...",
                 width=200,
                 height=150,
                 bg="#EDF0F5",
-                cursor="hand2",
-                anchor="center"
+                highlightthickness=0
             )
+            cadre_image.pack(pady=(0, 9))
+            cadre_image.pack_propagate(False)
 
-            label_image.pack(
-                pady=(0, 9)
+            label_image = tk.Label(
+                cadre_image,
+                text="Chargement...",
+                bg="#EDF0F5",
+                fg=self.SECONDARY,
+                cursor="hand2",
+                anchor="center",
+                bd=0,
+                padx=0,
+                pady=0
             )
+            label_image.pack(fill="both", expand=True)
 
             label_image.bind(
                 "<Button-1>",
@@ -1148,6 +1248,10 @@ class ChronoPicInterface:
                 "image": label_image,
                 "date": label_date
             }
+            cartes_dans_ligne += 1
+            if cartes_dans_ligne == GALLERY_COLUMNS:
+                ligne_courante += 1
+                cartes_dans_ligne = 0
 
         # Colonnes adaptatives
         for colonne in range(GALLERY_COLUMNS):
@@ -1157,7 +1261,7 @@ class ChronoPicInterface:
                 weight=1
             )
 
-        total = len(self.manager.photos)
+        total = len(self.photos_visibles)
 
         total_pages = max(
             1,
@@ -1181,7 +1285,7 @@ class ChronoPicInterface:
         )
 
         self.label_compteur.config(
-            text=f"{total} photographie(s)"
+            text=f"{total} résultat(s) / {self.manager.get_count()} photo(s)"
         )
 
         self.canvas.yview_moveto(0)
@@ -1190,6 +1294,7 @@ class ChronoPicInterface:
             (index, self.manager.photos[index])
             for index in range(debut, min(fin, total))
         ]
+        liste = [(debut + offset, photo) for offset, photo in enumerate(page_photos)]
 
         self.charger_miniatures(
             liste,
@@ -1345,6 +1450,13 @@ class ChronoPicInterface:
                 fg="#AEBBD0",
                 bg="#202B3C"
             ).pack()
+            dimensions = (f"{photo.get('largeur')} × {photo.get('hauteur')} px"
+                          if photo.get("largeur") and photo.get("hauteur") else "Inconnues")
+            details = (f"Appareil : {photo.get('appareil', 'Non renseigné')}  ·  "
+                       f"Dimensions : {dimensions}  ·  Format : {photo.get('format', 'Inconnu')}\n"
+                       f"Chemin : {photo['chemin']}")
+            tk.Label(fenetre, text=details, font=("Segoe UI", 9), fg="#AEBBD0",
+                     bg="#202B3C", wraplength=850, justify="center").pack(pady=10)
 
         except Exception as erreur:
 
@@ -1425,10 +1537,7 @@ class ChronoPicInterface:
 
         try:
 
-            export_to_excel(
-                self.manager.photos,
-                path
-            )
+            export_to_excel(self.manager.photos, path, selected_only=True)
 
             messagebox.showinfo(
                 "Export réussi",

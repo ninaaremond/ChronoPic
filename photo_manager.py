@@ -144,3 +144,25 @@ class PhotoManager:
                 "Date trouvée"
             )
         )
+
+    def get_filtered(self, search="", date_filter="Toutes", year="Toutes", month="Tous",
+                     selected_only=False, descending=False):
+        """Construit une vue filtrée sans modifier la collection originale."""
+        items = self.photos
+        query = search.casefold().strip()
+        if query:
+            items = [p for p in items if query in p["nom"].casefold()]
+        if date_filter == "Avec date":
+            items = [p for p in items if p["date"] is not None]
+        elif date_filter == "Sans date":
+            items = [p for p in items if p["statut"] != "En attente" and p["date"] is None]
+        if selected_only:
+            items = [p for p in items if p["selection"]]
+        if year != "Toutes":
+            items = [p for p in items if p["date"] and str(p["date"].year) == str(year)]
+        if month != "Tous":
+            items = [p for p in items if p["date"] and p["date"].month == int(month)]
+        dated = [p for p in items if p["date"] is not None]
+        undated = [p for p in items if p["date"] is None]
+        dated.sort(key=lambda p: p["date"], reverse=descending)
+        return dated + undated

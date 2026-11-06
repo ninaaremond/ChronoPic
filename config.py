@@ -4,7 +4,7 @@
 # ==========================================
 
 APP_NAME = "ChronoPic"
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.1.0"
 
 WINDOW_WIDTH = 1100
 WINDOW_HEIGHT = 800
