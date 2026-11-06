@@ -1,4 +1,3 @@
-
 import tkinter as tk
 
 from interface import ChronoPicInterface
