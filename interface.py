@@ -16,6 +16,7 @@ from config import (
     MIN_HEIGHT,
     PHOTOS_PER_PAGE,
     GALLERY_COLUMNS,
+    THUMBNAIL_WIDTH,
     COLOR_PRIMARY,
     COLOR_BACKGROUND,
     COLOR_SUCCESS,
@@ -66,6 +67,7 @@ class ChronoPicInterface:
         self.analyse_en_cours = False
         self.generation = 0
         self.page = 0
+        self.nombre_colonnes = GALLERY_COLUMNS
 
         self.thumbnail_cancel = threading.Event()
 
@@ -95,7 +97,7 @@ class ChronoPicInterface:
             bordercolor="#E5EAF2",
             lightcolor=self.BLUE,
             darkcolor=self.BLUE,
-            thickness=9
+            thickness=6
         )
 
         style.configure(
@@ -111,6 +113,18 @@ class ChronoPicInterface:
             background=self.WHITE,
             foreground=self.DARK,
             font=("Segoe UI", 9)
+        )
+
+        style.configure(
+            "Chrono.TEntry",
+            padding=5,
+            fieldbackground=self.WHITE
+        )
+
+        style.configure(
+            "Chrono.TCombobox",
+            padding=4,
+            fieldbackground=self.WHITE
         )
 
     # ==========================================
@@ -137,8 +151,8 @@ class ChronoPicInterface:
             activeforeground=self.WHITE if principal else self.DARK,
             relief="flat",
             bd=0,
-            padx=16,
-            pady=10,
+            padx=13,
+            pady=7,
             cursor="hand2",
             width=width
         )
@@ -169,13 +183,13 @@ class ChronoPicInterface:
         ).pack(
             anchor="w",
             padx=15,
-            pady=(12, 3)
+            pady=(8, 1)
         )
 
         valeur_label = tk.Label(
             carte,
             text=str(valeur),
-            font=("Segoe UI", 21, "bold"),
+            font=("Segoe UI", 17, "bold"),
             fg=couleur,
             bg=self.WHITE
         )
@@ -183,7 +197,7 @@ class ChronoPicInterface:
         valeur_label.pack(
             anchor="w",
             padx=15,
-            pady=(0, 12)
+            pady=(0, 8)
         )
 
         return carte, valeur_label
@@ -203,8 +217,8 @@ class ChronoPicInterface:
         principal.pack(
             fill="both",
             expand=True,
-            padx=24,
-            pady=18
+            padx=20,
+            pady=12
         )
 
         # --------------------------------------
@@ -218,7 +232,7 @@ class ChronoPicInterface:
 
         header.pack(
             fill="x",
-            pady=(0, 18)
+            pady=(0, 10)
         )
 
         header_gauche = tk.Frame(
@@ -231,7 +245,7 @@ class ChronoPicInterface:
         tk.Label(
             header_gauche,
             text="ChronoPic",
-            font=("Segoe UI", 25, "bold"),
+            font=("Segoe UI", 21, "bold"),
             fg=self.DARK,
             bg=self.BG
         ).pack(anchor="w")
@@ -250,9 +264,9 @@ class ChronoPicInterface:
             font=("Segoe UI", 8, "bold"),
             fg=self.BLUE,
             bg=self.BLUE_LIGHT,
-            padx=12,
-            pady=7
-        ).pack(side="right", pady=8)
+            padx=10,
+            pady=5
+        ).pack(side="right", pady=4)
 
         # --------------------------------------
         # ZONE D'IMPORTATION
@@ -267,7 +281,7 @@ class ChronoPicInterface:
 
         import_card.pack(
             fill="x",
-            pady=(0, 14)
+            pady=(0, 10)
         )
 
         import_content = tk.Frame(
@@ -277,8 +291,8 @@ class ChronoPicInterface:
 
         import_content.pack(
             fill="x",
-            padx=18,
-            pady=16
+            padx=14,
+            pady=10
         )
 
         import_gauche = tk.Frame(
@@ -342,17 +356,6 @@ class ChronoPicInterface:
             padx=4
         )
 
-        self.btn_effacer = self.creer_bouton(
-            import_droite,
-            "Vider",
-            self.effacer_photos
-        )
-
-        self.btn_effacer.pack(
-            side="left",
-            padx=4
-        )
-
         # --------------------------------------
         # STATISTIQUES
         # --------------------------------------
@@ -364,7 +367,7 @@ class ChronoPicInterface:
 
         stats.pack(
             fill="x",
-            pady=(0, 14)
+            pady=(0, 10)
         )
 
         stats.columnconfigure(
@@ -457,8 +460,26 @@ class ChronoPicInterface:
         )
 
         self.btn_excel.pack(side="right")
-        self.btn_rapport = self.creer_bouton(toolbar, "Rapport", self.exporter_rapport)
-        self.btn_rapport.pack(side="right", padx=7)
+        bouton_actions = tk.Menubutton(
+            toolbar,
+            text="Actions ▾",
+            font=("Segoe UI", 9, "bold"),
+            bg=self.WHITE,
+            fg=self.DARK,
+            activebackground="#EDF1F7",
+            activeforeground=self.DARK,
+            relief="flat",
+            padx=13,
+            pady=7,
+            cursor="hand2",
+            takefocus=True
+        )
+        self.menu_actions = tk.Menu(bouton_actions, tearoff=False)
+        self.menu_actions.add_command(label="Exporter le rapport", command=self.exporter_rapport)
+        self.menu_actions.add_separator()
+        self.menu_actions.add_command(label="Vider la galerie", command=self.effacer_photos)
+        bouton_actions.config(menu=self.menu_actions)
+        bouton_actions.pack(side="right", padx=(0, 7))
 
         # --------------------------------------
         # GALERIE
@@ -466,41 +487,51 @@ class ChronoPicInterface:
 
         # Recherche, filtres et mode de tri
         filtres = tk.Frame(principal, bg=self.BG)
-        filtres.pack(fill="x", pady=(0, 9))
+        filtres.pack(fill="x", pady=(0, 8))
+
+        for colonne, titre in enumerate(("Rechercher", "Date", "Année", "Mois", "Trier par")):
+            tk.Label(
+                filtres,
+                text=titre,
+                font=("Segoe UI", 8, "bold"),
+                fg=self.SECONDARY,
+                bg=self.BG
+            ).grid(row=0, column=colonne, sticky="w", padx=(0, 8), pady=(0, 2))
+        filtres.columnconfigure(0, weight=2)
+        filtres.columnconfigure(4, weight=1)
 
         self.recherche_var = tk.StringVar()
         self.recherche_var.trace_add("write", lambda *_: self.appliquer_filtres())
-        self.entree_recherche = ttk.Entry(filtres, textvariable=self.recherche_var, width=25)
-        self.entree_recherche.pack(side="left", padx=(0, 7), ipady=5)
-        self.entree_recherche.insert(0, "")
+        self.entree_recherche = ttk.Entry(
+            filtres, textvariable=self.recherche_var, width=20, style="Chrono.TEntry"
+        )
+        self.entree_recherche.grid(row=1, column=0, sticky="ew", padx=(0, 8))
 
         self.filtre_date_var = tk.StringVar(value="Toutes")
         self.combo_date = ttk.Combobox(filtres, textvariable=self.filtre_date_var,
-            values=["Toutes", "Avec date", "Sans date"], state="readonly", width=12)
-        self.combo_date.pack(side="left", padx=4)
+            values=["Toutes", "Avec date", "Sans date"], state="readonly", width=12,
+            style="Chrono.TCombobox")
+        self.combo_date.grid(row=1, column=1, sticky="ew", padx=(0, 8))
         self.combo_date.bind("<<ComboboxSelected>>", lambda e: self.appliquer_filtres())
 
         self.annee_var = tk.StringVar(value="Toutes")
         self.combo_annee = ttk.Combobox(filtres, textvariable=self.annee_var,
-            values=["Toutes"], state="readonly", width=9)
-        self.combo_annee.pack(side="left", padx=4)
+            values=["Toutes"], state="readonly", width=9, style="Chrono.TCombobox")
+        self.combo_annee.grid(row=1, column=2, sticky="ew", padx=(0, 8))
         self.combo_annee.bind("<<ComboboxSelected>>", lambda e: self.appliquer_filtres())
 
         self.mois_var = tk.StringVar(value="Tous")
         self.combo_mois = ttk.Combobox(filtres, textvariable=self.mois_var,
-            values=["Tous"] + [f"{i:02d}" for i in range(1, 13)], state="readonly", width=7)
-        self.combo_mois.pack(side="left", padx=4)
+            values=["Tous"] + [f"{i:02d}" for i in range(1, 13)], state="readonly", width=7,
+            style="Chrono.TCombobox")
+        self.combo_mois.grid(row=1, column=3, sticky="ew", padx=(0, 8))
         self.combo_mois.bind("<<ComboboxSelected>>", lambda e: self.appliquer_filtres())
-
-        # self.selection_var = tk.BooleanVar(value=False)
-        # tk.Checkbutton(filtres, text="Sélectionnées uniquement", variable=self.selection_var,
-        #     command=self.appliquer_filtres, bg=self.BG, fg=self.DARK,
-        #     activebackground=self.BG).pack(side="left", padx=7)
 
         self.tri_var = tk.StringVar(value="Plus anciennes d'abord")
         self.combo_tri = ttk.Combobox(filtres, textvariable=self.tri_var,
-            values=["Plus anciennes d'abord", "Plus récentes d'abord"], state="readonly", width=22)
-        self.combo_tri.pack(side="right", padx=3)
+            values=["Plus anciennes d'abord", "Plus récentes d'abord"], state="readonly", width=22,
+            style="Chrono.TCombobox")
+        self.combo_tri.grid(row=1, column=4, sticky="ew")
         self.combo_tri.bind("<<ComboboxSelected>>", lambda e: self.appliquer_filtres())
 
         galerie_card = tk.Frame(
@@ -546,13 +577,7 @@ class ChronoPicInterface:
             )
         )
 
-        self.canvas.bind(
-            "<Configure>",
-            lambda e: self.canvas.itemconfigure(
-                self.window_id,
-                width=e.width
-            )
-        )
+        self.canvas.bind("<Configure>", self.adapter_galerie)
 
         self.canvas.configure(
             yscrollcommand=scrollbar.set
@@ -562,8 +587,8 @@ class ChronoPicInterface:
             side="left",
             fill="both",
             expand=True,
-            padx=(12, 0),
-            pady=12
+            padx=(8, 0),
+            pady=8
         )
 
         scrollbar.pack(
@@ -589,7 +614,7 @@ class ChronoPicInterface:
 
         pagination.pack(
             fill="x",
-            pady=(10, 5)
+            pady=(8, 2)
         )
 
         self.btn_precedent = self.creer_bouton(
@@ -632,7 +657,7 @@ class ChronoPicInterface:
 
         footer.pack(
             fill="x",
-            pady=(5, 0)
+            pady=(3, 0)
         )
 
         self.label_analyse = tk.Label(
@@ -645,7 +670,7 @@ class ChronoPicInterface:
 
         self.label_analyse.pack(
             anchor="w",
-            pady=(0, 5)
+            pady=(0, 3)
         )
 
         self.progression = ttk.Progressbar(
@@ -668,14 +693,22 @@ class ChronoPicInterface:
 
         self.label_progression.pack(
             anchor="w",
-            pady=(4, 0)
+            pady=(2, 0)
         )
 
-        self.actualiser_stats()
+        self.afficher_galerie()
 
     # ==========================================
     # DEFILEMENT
     # ==========================================
+
+    def adapter_galerie(self, event):
+        self.canvas.itemconfigure(self.window_id, width=event.width)
+        colonnes = max(1, min(GALLERY_COLUMNS, event.width // (THUMBNAIL_WIDTH + 36)))
+        if colonnes != self.nombre_colonnes:
+            self.nombre_colonnes = colonnes
+            if self.manager.photos:
+                self.afficher_galerie()
 
     def obtenir_photos_filtrees(self):
         return self.manager.get_filtered(
@@ -683,7 +716,6 @@ class ChronoPicInterface:
             date_filter=self.filtre_date_var.get() if hasattr(self, "filtre_date_var") else "Toutes",
             year=self.annee_var.get() if hasattr(self, "annee_var") else "Toutes",
             month=self.mois_var.get() if hasattr(self, "mois_var") else "Tous",
-            selected_only=self.selection_var.get() if hasattr(self, "selection_var") else False,
             descending=self.tri_var.get() == "Plus récentes d'abord" if hasattr(self, "tri_var") else False
         )
 
@@ -914,7 +946,7 @@ class ChronoPicInterface:
 
         self.btn_dossier.config(state=etat)
         self.btn_photos.config(state=etat)
-        self.btn_effacer.config(state=etat)
+        self.menu_actions.entryconfigure("Vider la galerie", state=etat)
 
     # ==========================================
     # TRAITEMENT DES MESSAGES
@@ -1129,13 +1161,12 @@ class ChronoPicInterface:
                     titre_groupe = "Photos sans date"
                 entete_groupe = tk.Label(self.frame_galerie, text=titre_groupe,
                     font=("Segoe UI", 11, "bold"), fg=self.DARK, bg=self.WHITE, anchor="w")
-                entete_groupe.grid(row=ligne_courante, column=0, columnspan=GALLERY_COLUMNS,
+                entete_groupe.grid(row=ligne_courante, column=0, columnspan=self.nombre_colonnes,
                     sticky="ew", padx=10, pady=(12, 3))
                 ligne_courante += 1
                 groupe_precedent = groupe
 
             ligne = ligne_courante
-            colonne = (index - debut) % GALLERY_COLUMNS
             colonne = cartes_dans_ligne
 
             # Carte individuelle
@@ -1163,7 +1194,7 @@ class ChronoPicInterface:
             # leur format ou leur orientation.
             cadre_image = tk.Frame(
                 carte,
-                width=200,
+                width=THUMBNAIL_WIDTH,
                 height=150,
                 bg="#EDF0F5",
                 highlightthickness=0
@@ -1249,7 +1280,7 @@ class ChronoPicInterface:
                 "date": label_date
             }
             cartes_dans_ligne += 1
-            if cartes_dans_ligne == GALLERY_COLUMNS:
+            if cartes_dans_ligne == self.nombre_colonnes:
                 ligne_courante += 1
                 cartes_dans_ligne = 0
 
@@ -1258,7 +1289,7 @@ class ChronoPicInterface:
 
             self.frame_galerie.columnconfigure(
                 colonne,
-                weight=1
+                weight=1 if colonne < self.nombre_colonnes else 0
             )
 
         total = len(self.photos_visibles)
@@ -1317,7 +1348,7 @@ class ChronoPicInterface:
         empty.pack(
             expand=True,
             fill="both",
-            pady=100
+            pady=32
         )
 
         tk.Label(
@@ -1329,7 +1360,7 @@ class ChronoPicInterface:
 
         tk.Label(
             empty,
-            text="Votre galerie est vide",
+            text="Aucun résultat" if self.manager.get_count() else "Votre galerie est vide",
             font=("Segoe UI", 15, "bold"),
             fg=self.DARK,
             bg=self.WHITE
@@ -1337,7 +1368,11 @@ class ChronoPicInterface:
 
         tk.Label(
             empty,
-            text="Commencez par sélectionner un dossier ou ajouter des photos.",
+            text=(
+                "Modifiez votre recherche ou vos filtres pour retrouver vos photos."
+                if self.manager.get_count()
+                else "Commencez par sélectionner un dossier ou ajouter des photos."
+            ),
             font=("Segoe UI", 9),
             fg=self.SECONDARY,
             bg=self.WHITE
